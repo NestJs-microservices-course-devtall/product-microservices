@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from 'src/prisma.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { RpcException } from '@nestjs/microservices';
 
 @Injectable()
 export class ProductsService {
@@ -44,7 +45,10 @@ export class ProductsService {
     })
 
     if( !product  ){
-      throw new NotFoundException(` Product with id ${ id }`)
+      throw new RpcException({
+        message: ` Product with id ${ id }`,
+        status: HttpStatus.BAD_REQUEST
+      })
     }
     return product
   }
@@ -74,5 +78,26 @@ export class ProductsService {
     })
 
     return product
+  }
+
+  async validateProducts( ids: number[]){
+    
+    ids = Array.from(new Set(ids))
+
+    const products = await this.prisma.product.findMany({
+      where : { 
+        id:{
+          in:ids
+        }
+      }
+    });
+
+    if( products.length !==  ids.length ){
+      throw new RpcException({
+        message: "Some products  were not found",
+        status: HttpStatus.BAD_REQUEST
+      })
+    }
+    return products
   }
 }
